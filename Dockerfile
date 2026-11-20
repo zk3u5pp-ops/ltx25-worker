@@ -10,7 +10,7 @@
 # v0.46.1 (LTXV* nodes, TextGenerateLTX2Prompt, ResizeImageMaskNode,
 # ComfySwitchNode, ...), so NO custom nodes are installed.
 #
-# Models (~40GB) are NOT baked into the image: start.sh downloads them
+# Models (~45GB) are NOT baked into the image: start.sh downloads them
 # from HuggingFace on first boot into /comfyui/models (or
 # /runpod-volume/comfyui/models when a network volume is attached).
 # Image size: ~9-10GB. Cold start: model download ~10-20 min on first boot

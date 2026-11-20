@@ -14,6 +14,8 @@ not exposed.
 Model files (auto-downloaded by start.sh into /comfyui/models):
   diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors
   text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors
+  text_encoders/gemma4_e2b_it_int8_convrot.safetensors  (prompt enhancer;
+      required for /prompt validation even with enhancement OFF)
   vae/ltx-2.5-video-vae-bf16.safetensors
   vae/ltx-2.5-audio-vae-bf16.safetensors
   latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors
@@ -194,10 +196,17 @@ def _classify_exception(exc: Exception) -> tuple:
     message = str(exc).lower()
     if isinstance(exc, TimeoutError):
         return ("WORKFLOW_TIMEOUT", True)
+    # NB: HTTPError subclasses URLError, so check it FIRST.
+    if isinstance(exc, urllib.error.HTTPError):
+        if "prompt" in message:
+            return ("WORKFLOW_QUEUE_FAILED", True)
+        return ("COMFYUI_HTTP_ERROR", True)
     if isinstance(exc, urllib.error.URLError):
         return ("COMFYUI_UNREACHABLE", True)
     if "workflow error" in message:
         return ("WORKFLOW_EXECUTION_ERROR", False)
+    if "comfyui /prompt" in message:
+        return ("WORKFLOW_QUEUE_FAILED", True)
     if "http error" in message and "prompt" in message:
         return ("WORKFLOW_QUEUE_FAILED", True)
     if "incorrect padding" in message or "invalid base64" in message:
@@ -270,7 +279,15 @@ def queue_prompt(workflow: Dict) -> str:
         data=data,
         headers={"Content-Type": "application/json"},
     )
-    resp = urllib.request.urlopen(req, timeout=30)
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+    except urllib.error.HTTPError as e:
+        # ComfyUI returns {"error": ..., "node_errors": ...} on 400; surface
+        # it so a validation failure names the offending node instead of a
+        # bare "HTTP Error 400".
+        body = e.read().decode("utf-8", errors="replace")[:3000]
+        logger.error(f"ComfyUI /prompt rejected ({e.code}): {body}")
+        raise RuntimeError(f"ComfyUI /prompt HTTP {e.code}: {body}") from e
     result = json.loads(resp.read().decode("utf-8"))
     prompt_id = result.get("prompt_id")
     logger.info(f"Prompt queued with ID: {prompt_id}")

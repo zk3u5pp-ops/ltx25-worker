@@ -16,7 +16,7 @@ on every push to `main`).
 - `handler.py` (RunPod SDK) receives a job, patches the workflow JSON,
   queues it on the local ComfyUI server (127.0.0.1:8188), polls
   `/history`, and returns the MP4 as base64.
-- `start.sh` downloads the ~40GB model set from HuggingFace on first
+- `start.sh` downloads the ~45GB model set from HuggingFace on first
   boot (with aria2 + SHA-256 verification), then starts ComfyUI and the
   handler. If a network volume is attached at `/runpod-volume`, models
   are stored there and shared across workers.
@@ -32,14 +32,17 @@ and VAEs (the text encoder differs only by a 2.4KB header).
 |---|---|---|
 | `diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors` | 21.50 GB | Distilled transformer (int8) |
 | `text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors` | 15.37 GB | Text encoder (int8) |
+| `text_encoders/gemma4_e2b_it_int8_convrot.safetensors` | 5.20 GB | Prompt enhancer (int8, from `Comfy-Org/gemma-4`, ungated) |
 | `vae/ltx-2.5-video-vae-bf16.safetensors` | 1.47 GB | Video VAE |
 | `vae/ltx-2.5-audio-vae-bf16.safetensors` | 0.36 GB | Audio VAE |
 | `latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors` | 1.00 GB | Spatial upscaler (first pass runs at half res) |
 
 No distilled LoRA is needed: the distilled transformer works standalone.
-Prompt enhancement (`TextGenerateLTX2Prompt`, needs the extra
-`gemma4_e2b_it_int8_convrot` file) is disabled — the workflow's
-`ComfySwitchNode` is lazy, so the enhancement branch never executes.
+Prompt enhancement (`TextGenerateLTX2Prompt`, using the Gemma 4 E2B file)
+is disabled by default — the workflow's `ComfySwitchNode` is lazy, so the
+enhancement branch never executes. The E2B file must still be present:
+ComfyUI validates every loader's filename at queue time, and the
+workflows won't queue without it, even with enhancement off.
 
 ## API
 
@@ -92,7 +95,7 @@ Failures return `{"ok": false, "error_code": ..., "error_message": ...,
 ## RunPod endpoint settings
 
 - GPU pool: ADA_24 (RTX 4090) only
-- Container disk: 120GB (image ~10GB + models ~40GB + headroom)
+- Container disk: 120GB (image ~10GB + models ~45GB + headroom)
 - initTimeout: 3600s (first-boot model download)
 - Job timeout: 900s
 - min workers 0 / max workers 3, FlashBoot OFF
@@ -101,4 +104,4 @@ Failures return `{"ok": false, "error_code": ..., "error_message": ...,
 
 ~2–3 min per 5s 720p clip on a warm worker → roughly $0.04–0.06 per
 clip. Cold starts add the model-load time (from local disk, ~1–2 min)
-and, on first boot only, the ~40GB download.
+and, on first boot only, the ~45GB download.
