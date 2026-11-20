@@ -10,13 +10,14 @@
 # v0.46.1 (LTXV* nodes, TextGenerateLTX2Prompt, ResizeImageMaskNode,
 # ComfySwitchNode, ...), so NO custom nodes are installed.
 #
-# Models (~45GB) are NOT baked into the image: start.sh downloads them
+# Models (~43GB) are NOT baked into the image: start.sh downloads them
 # from HuggingFace on first boot into /comfyui/models (or
 # /runpod-volume/comfyui/models when a network volume is attached).
 # Image size: ~9-10GB. Cold start: model download ~10-20 min on first boot
 # (initTimeout 3600s); later jobs on a warm worker load from local disk.
 #
-# GPU: RTX 4090 (24GB) with the int8 transformer + int8 text encoder.
+# GPU: RTX 4090 (24GB) with the FP8 merged transformer (Eros10 + DMD +
+# IC-LoRAs baked in) + uncensored int8 text encoder.
 # 5s clips verified to fit; 10s clips may OOM at VAE decode, so the
 # handler caps duration at 5s.
 #

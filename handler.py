@@ -11,13 +11,16 @@ audio-video model). The distilled transformer runs a fixed calibrated
 schedule (3 first-pass + 8 refinement steps); steps/CFG are intentionally
 not exposed.
 
-Model files (auto-downloaded by start.sh into /comfyui/models):
-  diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors
-  text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors
+Model files (auto-downloaded by start.sh into /comfyui/models).
+Transformer / text encoder / VAEs are the uncensored merged build
+ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8 (Eros10 NSFW LoRA + DMD
+distilled LoRA + IC-LoRAs baked into the LTX-2.5 distilled weights):
+  diffusion_models/ltx25_uncensored_v1.1-fp8_scaled.safetensors
+  text_encoders/gemma4_12b_ltx25_uncensored-int8.safetensors
   text_encoders/gemma4_e2b_it_int8_convrot.safetensors  (prompt enhancer;
       required for /prompt validation even with enhancement OFF)
-  vae/ltx-2.5-video-vae-bf16.safetensors
-  vae/ltx-2.5-audio-vae-bf16.safetensors
+  vae/ltx25_uncensored_video_vae.safetensors
+  vae/ltx25_uncensored_audio_vae.safetensors
   latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors
 
 Input format:

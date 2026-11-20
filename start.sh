@@ -1,11 +1,13 @@
 #!/bin/bash
 # LTX-2.5 serverless worker startup.
 #
-# Downloads the ~45GB int8 model set from HuggingFace on first boot
-# (comfyicu/LTX-2.5 mirror - the official Lightricks/LTX-2.5 repo is gated
-# and returns 401 without an accepted licence + token; the mirror files are
-# byte-identical for the transformer and VAEs, and the text encoder differs
-# only by a 2.4KB safetensors header).
+# Downloads the ~43GB model set from HuggingFace on first boot.
+# Transformer + text encoder + VAEs come from the uncensored merged build
+# ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8 (Eros10 NSFW LoRA + DMD
+# distilled LoRA + IC-LoRAs baked into the LTX-2.5 distilled weights;
+# ungated). The prompt-enhancer E2B encoder still comes from
+# Comfy-Org/gemma-4 and the spatial upscaler from the comfyicu/LTX-2.5
+# mirror (the official Lightricks/LTX-2.5 repo is gated).
 #
 # Models go to /comfyui/models by default. If a RunPod network volume is
 # attached at /runpod-volume, models are stored there instead
@@ -43,13 +45,15 @@ if [ -n "$HF_TOKEN" ]; then
 fi
 
 # basename | dest-subdir | size(bytes) | sha256 | huggingface resolve path
-# Sizes + SHA-256 from the comfyicu/LTX-2.5 HuggingFace tree API.
+# Sizes + SHA-256 from the HuggingFace tree API of each source repo.
+# (The uncensored VAEs are byte-identical to the official ones - same
+# size and SHA-256 - only the filenames differ.)
 read -r -d '' MODELS <<'EOF'
-ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors|diffusion_models|21504034224|c4279eeff115cbeaca494bd2183e7d768c38fe85a184dc6afbb7159157c44334|comfyicu/LTX-2.5/resolve/main/diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors
-gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors|text_encoders|15372971786|09a89e084de1a149c3de60cfe9dfd3e5161967eb09eea39e806fcdeffdd568de|comfyicu/LTX-2.5/resolve/main/text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors
+ltx25_uncensored_v1.1-fp8_scaled.safetensors|diffusion_models|21473651432|25a62cfdbcf7337c5c610447ce446330d21ccde44c8d31a4ae725bab0a9e9de9|ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8/resolve/main/split/diffusion_models/ltx25_uncensored_v1.1-fp8_scaled.safetensors
+gemma4_12b_ltx25_uncensored-int8.safetensors|text_encoders|13157517698|61e0ada28e8e016e5c5bbd7a830b0c4ed4a574a203e0d7d347db6474b77d00c9|ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8/resolve/main/split/text_encoders/gemma4_12b_ltx25_uncensored-int8.safetensors
 gemma4_e2b_it_int8_convrot.safetensors|text_encoders|5199997904|efeca0fcad2f863e5ed0a75e3af952b72bc963604c1dda6d20aee87a32b17566|Comfy-Org/gemma-4/resolve/main/text_encoders/gemma4_e2b_it_int8_convrot.safetensors
-ltx-2.5-video-vae-bf16.safetensors|vae|1472223346|847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3|comfyicu/LTX-2.5/resolve/main/vae/ltx-2.5-video-vae-bf16.safetensors
-ltx-2.5-audio-vae-bf16.safetensors|vae|364866540|c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5|comfyicu/LTX-2.5/resolve/main/vae/ltx-2.5-audio-vae-bf16.safetensors
+ltx25_uncensored_video_vae.safetensors|vae|1472223346|847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3|ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8/resolve/main/split/vae/ltx25_uncensored_video_vae.safetensors
+ltx25_uncensored_audio_vae.safetensors|vae|364866540|c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5|ChrisColeTech/LTX-2.5-uncensored-v1.1-FP8/resolve/main/split/vae/ltx25_uncensored_audio_vae.safetensors
 ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors|latent_upscale_models|995778752|eb5a71fe4068ee87ccdb1c3aa635e547ca76bd2d30ae20ae889f2c325c0677e8|comfyicu/LTX-2.5/resolve/main/latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors
 EOF
 
@@ -95,7 +99,7 @@ download_model() {
 
 echo ""
 echo "=========================================="
-echo "Downloading models from HuggingFace (~45GB)..."
+echo "Downloading models from HuggingFace (~43GB)..."
 echo "=========================================="
 fail=0
 while IFS='|' read -r base subdir size sha hf; do

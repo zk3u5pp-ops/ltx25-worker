@@ -344,26 +344,26 @@
  "455:439": {
   "class_type": "UNETLoader",
   "inputs": {
-   "unet_name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+   "unet_name": "ltx25_uncensored_v1.1-fp8_scaled.safetensors",
    "weight_dtype": "default"
   }
  },
  "455:440": {
   "class_type": "VAELoader",
   "inputs": {
-   "vae_name": "ltx-2.5-video-vae-bf16.safetensors"
+   "vae_name": "ltx25_uncensored_video_vae.safetensors"
   }
  },
  "455:441": {
   "class_type": "VAELoader",
   "inputs": {
-   "vae_name": "ltx-2.5-audio-vae-bf16.safetensors"
+   "vae_name": "ltx25_uncensored_audio_vae.safetensors"
   }
  },
  "455:442": {
   "class_type": "CLIPLoader",
   "inputs": {
-   "clip_name": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+   "clip_name": "gemma4_12b_ltx25_uncensored-int8.safetensors",
    "type": "ltxv",
    "device": "default"
   }
