@@ -123,10 +123,13 @@ DEFAULT_NEGATIVE_PROMPT = (
 MAX_DURATION_S = 5
 MIN_DIMENSION = 256
 MAX_DIMENSION = 1280
-# Snap to multiples of 16: preserves standard dims (720, 1280, 1024, 768,
-# 512, 480). NOTE: /32 would break 720p (720 is not a multiple of 32 and
-# would snap down to 704); the official template itself uses 1280x720.
-DIMENSION_STEP = 16
+# Snap to multiples of 64 (round to nearest). WHY: the blueprint runs the
+# first pass at half resolution (width/2, height/2), and EmptyLTXVLatentVideo
+# floors the latent size with `// 32`. So a full-res dim must be a multiple
+# of 64 for the output file to match the requested size. 720 is NOT a
+# multiple of 64: requesting 720 yields a 704px file (verified live).
+# Snapping here keeps the reported size honest with the actual file.
+DIMENSION_STEP = 64
 
 DEFAULTS = {
     "width": 1280,
@@ -379,8 +382,8 @@ def get_output_video(outputs: Dict) -> Optional[str]:
 
 def _snap_dimension(value: int) -> int:
     value = max(MIN_DIMENSION, min(MAX_DIMENSION, int(value)))
-    return max(MIN_DIMENSION,
-               (value // DIMENSION_STEP) * DIMENSION_STEP)
+    snapped = round(value / DIMENSION_STEP) * DIMENSION_STEP
+    return max(MIN_DIMENSION, min(MAX_DIMENSION, snapped))
 
 
 # ---------------------------------------------------------------- handler

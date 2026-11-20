@@ -73,7 +73,10 @@ Add `image_base64` (the first frame). Optional I2V knobs:
 frames = duration*fps + 1), `timeout` (default 840s).
 
 Limits: duration max 5s (10s clips can OOM the VAE decode on 24GB);
-width/height snapped to multiples of 32, 256–1280.
+width/height are snapped to the nearest multiple of 64 (256–1280). The
+/64 snap is required: the first pass runs at half resolution and the
+latent size is floored to a multiple of 32, so a 720 request yields a
+704px file. Snapping keeps the reported size equal to the actual file.
 
 ### Response
 
