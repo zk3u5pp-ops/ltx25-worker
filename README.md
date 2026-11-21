@@ -73,7 +73,9 @@ Add `image_base64` (the first frame). Optional I2V knobs:
 ### Common optional fields
 
 `negative_prompt`, `frames` (overrides `duration`;
-frames = duration*fps + 1), `timeout` (default 840s).
+frames = duration*fps + 1), `timeout` (default 840s), `mute_audio`
+(default false — strips the audio track from the output MP4 with
+ffmpeg; the response then includes `"audio_muted": true`).
 
 Limits: duration max 5s (10s clips can OOM the VAE decode on 24GB);
 width/height are snapped to the nearest multiple of 64 (256–1280). The
@@ -87,6 +89,7 @@ latent size is floored to a multiple of 32, so a 720 request yields a
 {
   "ok": true,
   "video": "<base64-encoded mp4>",
+  "audio_muted": false,
   "seed": 12345,
   "mode": "t2v",
   "width": 1280, "height": 720, "duration": 5, "fps": 24,
@@ -106,8 +109,8 @@ Failures return `{"ok": false, "error_code": ..., "error_message": ...,
 - Job timeout: 900s
 - min workers 0 / max workers 3, FlashBoot OFF
 
-## Cost estimate (RTX 4090 serverless, $1.10/hr)
+## Cost estimate (RTX 4090 serverless, $1.34/hr)
 
-~2–3 min per 5s 720p clip on a warm worker → roughly $0.04–0.06 per
+~2–3 min per 5s 720p clip on a warm worker → roughly $0.05–0.07 per
 clip. Cold starts add the model-load time (from local disk, ~1–2 min)
 and, on first boot only, the ~43GB download.
