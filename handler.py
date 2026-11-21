@@ -39,6 +39,8 @@ Input format:
         "i2v_strength_first": float,  # I2V only (default 0.7)
         "i2v_strength_second": float, # I2V only (default 1.0)
         "img_compression": int,     # I2V only (default 18)
+        "mute_audio": bool,         # Optional (default False) - strip the
+                                    # audio track from the output MP4
         "timeout": int,             # Optional seconds (default 840)
     }
 }
@@ -47,6 +49,7 @@ Output format:
 {
     "ok": true,
     "video": "<base64-encoded mp4>",
+    "audio_muted": bool,        # True when the audio track was stripped
     "seed": int,
     "mode": "t2v" | "i2v",
     "width": int, "height": int, "duration": int, "fps": int,
@@ -89,12 +92,13 @@ import logging
 import os
 import random
 import socket
+import subprocess
 import sys
 import time
 import traceback
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import runpod
 
@@ -334,8 +338,34 @@ def wait_for_completion(prompt_id: str, timeout: int = 840) -> Dict:
     raise TimeoutError(f"Generation timed out after {timeout} seconds")
 
 
-def get_output_video(outputs: Dict) -> Optional[str]:
-    """Return base64 MP4 from ComfyUI history outputs (or newest .mp4)."""
+def _strip_audio(input_path: str) -> Optional[str]:
+    """Return the path of a copy of the video with the audio track
+    removed (video stream copied, not re-encoded). Returns None if
+    ffmpeg fails."""
+    base = input_path.rsplit(".", 1)[0]
+    muted_path = f"{base}_muted.mp4"
+    cmd = ["ffmpeg", "-y", "-i", input_path,
+           "-c:v", "copy", "-an", muted_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                timeout=120)
+    except Exception as e:
+        logger.error(f"ffmpeg mute failed to run: {e}")
+        return None
+    if result.returncode != 0:
+        logger.error(f"ffmpeg mute failed: {result.stderr[-500:]}")
+        return None
+    logger.info(f"Stripped audio: {muted_path} "
+                f"({os.path.getsize(muted_path)} bytes)")
+    return muted_path
+
+
+def get_output_video(outputs: Dict,
+                     mute_audio: bool = False) -> Tuple[Optional[str], bool]:
+    """Return (base64 MP4, audio_muted) from ComfyUI history outputs
+    (or newest .mp4). When mute_audio is True the audio track is
+    stripped with ffmpeg before encoding; if stripping fails the
+    original video (with audio) is returned and audio_muted is False."""
     candidates = []
     for node_id, node_output in outputs.items():
         for key in ["videos", "video", "gifs", "images", "files"]:
@@ -367,11 +397,24 @@ def get_output_video(outputs: Dict) -> Optional[str]:
                     break
     if not candidates:
         logger.warning("No output video found in results")
-        return None
+        return None, False
     # Prefer mp4 files; newest first.
     candidates.sort(key=lambda p: (not p.endswith(".mp4"),
                                    -os.path.getmtime(p)))
     path = candidates[0]
+    audio_muted = False
+    if mute_audio:
+        muted_path = _strip_audio(path)
+        if muted_path:
+            try:
+                os.remove(path)  # drop the original with audio
+            except OSError:
+                pass
+            path = muted_path
+            audio_muted = True
+        else:
+            logger.warning("Audio strip failed; returning original video "
+                           "with audio")
     size = os.path.getsize(path)
     logger.info(f"Found output video: {path} ({size} bytes)")
     with open(path, "rb") as f:
@@ -380,7 +423,7 @@ def get_output_video(outputs: Dict) -> Optional[str]:
         os.remove(path)  # keep the worker disk clean between jobs
     except OSError:
         pass
-    return data
+    return data, audio_muted
 
 
 def _snap_dimension(value: int) -> int:
@@ -463,7 +506,8 @@ def handler(job: Dict) -> Dict:
 
         prompt_id = queue_prompt(workflow)
         outputs = wait_for_completion(prompt_id, timeout)
-        video_data = get_output_video(outputs)
+        mute_audio = bool(job_input.get("mute_audio", False))
+        video_data, audio_muted = get_output_video(outputs, mute_audio)
 
         if not video_data:
             return _failure_response(
@@ -478,6 +522,7 @@ def handler(job: Dict) -> Dict:
         return {
             "ok": True,
             "video": video_data,
+            "audio_muted": audio_muted,
             "seed": seed,
             "mode": mode,
             "width": width,
